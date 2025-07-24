@@ -1,0 +1,17 @@
+-- Bus telemetry + loop counters → detect standing water
+CREATE SOURCE bus_gps (
+    ts TIMESTAMP, vehicle STRING, lon FLOAT, lat FLOAT, speed_kmh FLOAT)
+WITH (type='kafka', topic='bus.telemetry');
+
+CREATE SOURCE loop_counts (
+    ts TIMESTAMP, loop_id INT, axle_cnt INT)
+WITH (type='mqtt', broker='traffic.roads.lan');
+
+SELECT loop_id,
+       AVG(speed_kmh) FILTER (...) AS avg_speed,
+       axle_cnt
+FROM bus_gps AS bus,
+     loop_counts AS loop
+ALIGN WINDOW 30 SECONDS
+WHERE avg_speed < 15 AND axle_cnt > 120
+EMIT EVERY 30 SECONDS;
